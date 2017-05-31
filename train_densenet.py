@@ -9,7 +9,8 @@ Coded by Lin Xiong Mar-2, 2017
 """
 import argparse,logging,os
 import mxnet as mx
-from symbol_densenet import DenseNet
+from densenet import get_symbol as DenseNet
+#from symbol_densenet import DenseNet
 import memonger
 
 logger = logging.getLogger()
@@ -94,10 +95,8 @@ def main():
     elif args.data_type == 'cifar10':
         args.num_classes = 10
         N = (args.depth - 4) // 6
-        units = [N, N, N]
-        symbol = DenseNet(units=units, num_stage=3, growth_rate=args.growth_rate, num_class=args.num_classes,
-                            data_type="cifar10", reduction=args.reduction, drop_out=args.drop_out, bottle_neck=True,
-                            bn_mom=args.bn_mom, workspace=args.workspace)
+        units = [16, 16, 16]
+        symbol = DenseNet(units, 3, 12, 10, 'cifar10')
     else:
         raise ValueError("do not support {} yet".format(args.data_type))
     kv = mx.kvstore.create(args.kv_store)
@@ -158,9 +157,9 @@ def main():
         num_parts           = kv.num_workers,
         part_index          = kv.rank)
 
-    net_planned = memonger.search_plan(symbol)
-
     dshape = (64, 3, 32, 32)
+    net_planned = memonger.search_plan(symbol, 1, data=dshape)
+
     c = get_cost(symbol, data=dshape)
     print('cost %d MB' % c)
     # dshape = (64, 3, 32, 32)

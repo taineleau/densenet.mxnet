@@ -10,17 +10,17 @@ def BasicBlock(data, growth_rate, stride, name, bottle_neck=True, drop_out=0.0, 
     if bottle_neck:
         # the same as https://github.com/facebook/fb.resnet.torch#notes, a bit difference with origin paper
         bn1   = mx.sym.BatchNorm(data=data, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn1')
-        bn1._set_attr(force_mirroring='True')
+        #bn1._set_attr(force_mirroring='True')
         act1  = mx.sym.Activation(data=bn1, act_type='relu', name=name + '_relu1')
         conv1 = mx.sym.Convolution(data=act1, num_filter=int(growth_rate*4), kernel=(1,1), stride=(1,1), pad=(0,0),
                                       no_bias=True, workspace=workspace, name=name + '_conv1')
 
         if drop_out > 0:
             conv1 = mx.symbol.Dropout(data=conv1, p=drop_out, name=name + '_dp1')
-        #conv1._set_attr(mirror_stage='True')
+        conv1._set_attr(mirror_stage='True')
 
         bn2   = mx.sym.BatchNorm(data=conv1, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn2')
-        bn2._set_attr(force_mirroring='True')
+        #bn2._set_attr(force_mirroring='True')
         act2  = mx.sym.Activation(data=bn2, act_type='relu', name=name + '_relu2')
         conv2 = mx.sym.Convolution(data=act2, num_filter=int(growth_rate), kernel=(3,3), stride=stride, pad=(1,1),
                                       no_bias=True, workspace=workspace, name=name + '_conv2')
@@ -28,18 +28,18 @@ def BasicBlock(data, growth_rate, stride, name, bottle_neck=True, drop_out=0.0, 
         if drop_out > 0:
             conv2 = mx.symbol.Dropout(data=conv2, p=drop_out, name=name + '_dp2')
 
-        #conv2._set_attr(mirror_stage='True')
+        conv2._set_attr(mirror_stage='True')
 
         return conv2
     else:
         bn1   = mx.sym.BatchNorm(data=data, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn1')
-        bn1._set_attr(force_mirroring='True')
+        #bn1._set_attr(force_mirroring='True')
         act1  = mx.sym.Activation(data=bn1, act_type='relu', name=name + '_relu1')
         conv1 = mx.sym.Convolution(data=act1, num_filter=int(growth_rate), kernel=(3,3), stride=(1,1), pad=(1,1),
                                       no_bias=True, workspace=workspace, name=name + '_conv1')
         if drop_out > 0:
             conv1 = mx.symbol.Dropout(data=conv1, p=drop_out, name=name + '_dp1')
-        #conv1._set_attr(mirror_stage='True')
+        conv1._set_attr(mirror_stage='True')
         return conv1
 
 
@@ -88,7 +88,7 @@ def TransitionBlock(num_stage, data, num_filter, stride, name, drop_out=0.0, bn_
         Workspace used in convolution operator
     """
     bn1 = mx.sym.BatchNorm(data=data, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn1')
-    bn1._set_attr(force_mirroring='True')
+    #bn1._set_attr(force_mirroring='True')
     act1 = mx.sym.Activation(data=bn1, act_type='relu', name=name + '_relu1')
     conv1 = mx.sym.Convolution(data=act1, num_filter=num_filter,
                                kernel=(1, 1), stride=stride, pad=(0, 0), no_bias=True,
@@ -96,7 +96,7 @@ def TransitionBlock(num_stage, data, num_filter, stride, name, drop_out=0.0, bn_
     if drop_out > 0:
         conv1 = mx.symbol.Dropout(data=conv1, p=drop_out, name=name + '_dp1')
 
-    #conv1._set_attr(mirror_stage='True')
+    conv1._set_attr(mirror_stage='True')
     return mx.symbol.Pooling(conv1, global_pool=False, kernel=(2, 2), stride=(2, 2), pool_type='avg',
                              name=name + '_pool%d' % (num_stage + 1))
 
@@ -132,7 +132,7 @@ def get_symbol(units, num_stage, growth_rate, num_class, data_type, reduction=0.
     if data_type == 'imagenet':
         body = mx.sym.Convolution(data=data, num_filter=growth_rate*2, kernel=(7, 7), stride=(2,2), pad=(3, 3),
                                   no_bias=True, name="conv0", workspace=workspace)
-        #body._set_attr(mirror_stage='True')
+        body._set_attr(mirror_stage='True')
 
 
         body = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn0')
@@ -176,10 +176,10 @@ layers = [16, 16, 16]
 batch_size = 64
 net = get_symbol(layers, 3, 12, 10, 'cifar10')
 dshape = (batch_size, 3, 32, 32)
-#net_mem_planned = memonger.search_plan(net, 1, data=dshape)
+net_mem_planned = memonger.search_plan(net, 1, data=dshape)
 old_cost = memonger.get_cost(net, data=dshape)
-#new_cost = memonger.get_cost(net_mem_planned, data=dshape)
+new_cost = memonger.get_cost(net_mem_planned, data=dshape)
 
 print('Old feature map cost=%d MB' % old_cost)
-#print('New feature map cost=%d MB' % new_cost)
+print('New feature map cost=%d MB' % new_cost)
 # You can savely feed the net to the subsequent mxnet training script.

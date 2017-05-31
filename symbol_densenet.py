@@ -39,14 +39,16 @@ def BasicBlock(data, growth_rate, stride, name, bottle_neck=True, drop_out=0.0, 
     if bottle_neck:
         # the same as https://github.com/facebook/fb.resnet.torch#notes, a bit difference with origin paper
         bn1   = mx.sym.BatchNorm(data=data, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn1')
-        # bn1._set_attr(force_mirroring='True')
+        bn1._set_attr(force_mirroring='True')
         act1  = mx.sym.Activation(data=bn1, act_type='relu', name=name + '_relu1')
+	act1._set_attr(force_mirroring='True')
         conv1 = mx.sym.Convolution(data=act1, num_filter=int(growth_rate*4), kernel=(1,1), stride=(1,1), pad=(0,0),
                                       no_bias=True, workspace=workspace, name=name + '_conv1')
+	conv1._set_attr(force_mirroring='True')
         if drop_out > 0:
             conv1 = mx.symbol.Dropout(data=conv1, p=drop_out, name=name + '_dp1')
         bn2   = mx.sym.BatchNorm(data=conv1, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn2')
-        # bn2._set_attr(force_mirroring='True')
+        bn2._set_attr(force_mirroring='True')
         act2  = mx.sym.Activation(data=bn2, act_type='relu', name=name + '_relu2')
         conv2 = mx.sym.Convolution(data=act2, num_filter=int(growth_rate), kernel=(3,3), stride=stride, pad=(1,1),
                                       no_bias=True, workspace=workspace, name=name + '_conv2')
@@ -55,7 +57,7 @@ def BasicBlock(data, growth_rate, stride, name, bottle_neck=True, drop_out=0.0, 
         return conv2
     else:
         bn1   = mx.sym.BatchNorm(data=data, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn1')
-        # bn1._set_attr(force_mirroring='True')
+        bn1._set_attr(force_mirroring='True')
         act1  = mx.sym.Activation(data=bn1, act_type='relu', name=name + '_relu1')
         conv1 = mx.sym.Convolution(data=act1, num_filter=int(growth_rate), kernel=(3,3), stride=(1,1), pad=(1,1),
                                       no_bias=True, workspace=workspace, name=name + '_conv1')
@@ -110,7 +112,7 @@ def TransitionBlock(num_stage, data, num_filter, stride, name, drop_out=0.0, bn_
         Workspace used in convolution operator
     """
     bn1   = mx.sym.BatchNorm(data=data, fix_gamma=False, eps=2e-5, momentum=bn_mom, name=name + '_bn1')
-    # bn1._set_attr(force_mirroring='True')
+    bn1._set_attr(force_mirroring='True')
     act1  = mx.sym.Activation(data=bn1, act_type='relu', name=name + '_relu1')
     conv1 = mx.sym.Convolution(data=act1, num_filter=num_filter,
                                 kernel=(1,1), stride=stride, pad=(0,0), no_bias=True, 
@@ -180,7 +182,7 @@ def DenseNet(units, num_stage, growth_rate, num_class, data_type, reduction=0.5,
         body = TransitionBlock(i, body, n_channels, stride=(1,1), name='TBstage%d' % (i + 1), drop_out=drop_out, bn_mom=bn_mom, workspace=workspace)
     body = DenseBlock(units[num_stage-1], body, growth_rate=growth_rate, name='DBstage%d' % (num_stage), bottle_neck=bottle_neck, drop_out=drop_out, bn_mom=bn_mom, workspace=workspace)
     bn1 = mx.sym.BatchNorm(data=body, fix_gamma=False, eps=2e-5, momentum=bn_mom, name='bn1')
-    # bn1._set_attr(force_mirroring='True')
+    bn1._set_attr(force_mirroring='True')
     relu1 = mx.sym.Activation(data=bn1, act_type='relu', name='relu1')
     pool1 = mx.symbol.Pooling(data=relu1, global_pool=True, kernel=(8, 8), pool_type='avg', name='pool1')
     flat = mx.symbol.Flatten(data=pool1)

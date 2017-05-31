@@ -10,6 +10,7 @@ Coded by Lin Xiong Mar-2, 2017
 import argparse,logging,os
 import mxnet as mx
 from symbol_densenet import DenseNet
+import memonger
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -19,6 +20,15 @@ console = logging.StreamHandler()
 console.setFormatter(formatter)
 logger.addHandler(console)
 
+
+def get_cost(sym, **kwargs):
+    """Get the cost of the current symbolic plan by running bind on CPU.
+    sym : Symbolic Variable
+    """
+    texec = sym.simple_bind(ctx=mx.cpu(),
+                            grad_req='write',
+                            **kwargs)
+    return int(texec.debug_str().split('\n')[-3].split()[1])
 
 def _download(data_dir):
     if not os.path.isdir(data_dir):
@@ -148,20 +158,23 @@ def main():
         num_parts           = kv.num_workers,
         part_index          = kv.rank)
 
-    # net_planned = memonger.search_plan(symbol)
+    net_planned = memonger.search_plan(symbol)
 
+    dshape = (64, 3, 32, 32)
+    c = get_cost(symbol, data=dshape)
+    print('cost %d MB' % c)
     # dshape = (64, 3, 32, 32)
     # old_cost = memonger.get_cost(symbol, data=dshape)
-    # new_cost = memonger.get_cost(net_planned, data=dshape)
+    new_cost = memonger.get_cost(net_planned, data=dshape)
 
     # print('Old feature map cost=%d MB' % old_cost)
-    # print('New feature map cost=%d MB' % new_cost)
+    print('New feature map cost=%d MB' % new_cost)
 
     model = mx.model.FeedForward(
         # net_planned,
         ctx
         = devs,
-        symbol              = symbol,
+        symbol              = net_planned,
         arg_params          = arg_params,
         aux_params          = aux_params,
         num_epoch           = 300 if args.data_type == "cifar10" else 125,
@@ -203,7 +216,7 @@ if __name__ == "__main__":
     parser.add_argument('--growth-rate', type=int, default=32, help='the growth rate of DenseNet')
     parser.add_argument('--drop-out', type=float, default=0.2, help='the probability of an element to be zeroed')
     parser.add_argument('--reduction', type=float, default=0.5, help='the compression ratio for TransitionBlock')
-    parser.add_argument('--workspace', type=int, default=512, help='memory space size(MB) used in convolution, if xpu '
+    parser.add_argument('--workspace', type=int, default=50, help='memory space size(MB) used in convolution, if xpu '
                         ' memory is oom, then you can try smaller vale, such as --workspace 256')
     parser.add_argument('--depth', type=int, default=50, help='the depth of resnet')
     parser.add_argument('--num-classes', type=int, default=1000, help='the class number of your task')

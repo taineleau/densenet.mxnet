@@ -10,6 +10,7 @@ Coded by Lin Xiong Mar-2, 2017
 import argparse,logging,os
 import mxnet as mx
 from symbol_densenet import DenseNet
+import memonger
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -18,6 +19,18 @@ formatter = logging.Formatter('%(asctime)s - %(message)s')
 console = logging.StreamHandler()
 console.setFormatter(formatter)
 logger.addHandler(console)
+
+
+def _download(data_dir):
+    if not os.path.isdir(data_dir):
+        os.system('mkdir ' + data_dir)
+    os.chdir(data_dir)
+    if (not os.path.exists('train.rec')) or \
+       (not os.path.exists('test.rec')):
+        os.system('wget http://data.mxnet.io/mxnet/data/cifar10.zip')
+        os.system('unzip -u cifar10.zip')
+        # os.system('mv cifar/* .; rm -rf cifar; rm cifar10.zip')
+    os.chdir('..')
 
 def multi_factor_scheduler(begin_epoch, epoch_size, step=[30, 60, 90, 95, 115, 120], factor=0.1):
     step_ = [epoch_size * (x-begin_epoch) for x in step if x-begin_epoch > 0]
@@ -69,7 +82,13 @@ def main():
         symbol = DenseNet(units=units, num_stage=4, growth_rate=48 if args.depth == 161 else args.growth_rate, num_class=args.num_classes, 
                             data_type="msface", reduction=args.reduction, drop_out=args.drop_out, bottle_neck=True,
                             bn_mom=args.bn_mom, workspace=args.workspace)
-	
+    elif args.data_type == 'cifar10':
+        args.num_classes = 10
+        N = (args.depth - 4) // 6
+        units = [N, N, N]
+        symbol = DenseNet(units=units, num_stage=3, growth_rate=args.growth_rate, num_class=args.num_classes,
+                            data_type="cifar10", reduction=args.reduction, drop_out=args.drop_out, bottle_neck=True,
+                            bn_mom=args.bn_mom, workspace=args.workspace)
     else:
         raise ValueError("do not support {} yet".format(args.data_type))
     kv = mx.kvstore.create(args.kv_store)
@@ -87,6 +106,11 @@ def main():
     
     # import pdb
     # pdb.set_trace()
+
+    print(symbol.debug_str())
+    mx.viz.plot_network(symbol)
+
+
 
     train = mx.io.ImageRecordIter(
         path_imgrec         = os.path.join(args.data_dir, "train.rec") if args.data_type == 'cifar10' else
@@ -124,13 +148,24 @@ def main():
         rand_mirror         = False,
         num_parts           = kv.num_workers,
         part_index          = kv.rank)
-	
+
+    # net_planned = memonger.search_plan(symbol)
+
+    # dshape = (64, 3, 32, 32)
+    # old_cost = memonger.get_cost(symbol, data=dshape)
+    # new_cost = memonger.get_cost(net_planned, data=dshape)
+
+    # print('Old feature map cost=%d MB' % old_cost)
+    # print('New feature map cost=%d MB' % new_cost)
+
     model = mx.model.FeedForward(
-        ctx                 = devs,
+        # net_planned,
+        ctx
+        = devs,
         symbol              = symbol,
         arg_params          = arg_params,
         aux_params          = aux_params,
-        num_epoch           = 200 if args.data_type == "cifar10" else 125,
+        num_epoch           = 300 if args.data_type == "cifar10" else 125,
         begin_epoch         = begin_epoch,
         learning_rate       = args.lr,
         momentum            = args.mom,
@@ -142,7 +177,7 @@ def main():
                              if args.data_type=='cifar10' else
                              multi_factor_scheduler(begin_epoch, epoch_size, step=[30, 60, 90, 95, 115, 120], factor=0.1),
         )
-	
+
     # import pdb
     # pdb.set_trace()
 

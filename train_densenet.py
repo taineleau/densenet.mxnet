@@ -10,7 +10,6 @@ Coded by Lin Xiong Mar-2, 2017
 import argparse,logging,os
 import mxnet as mx
 from symbol_densenet import DenseNet
-import memonger
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -107,8 +106,8 @@ def main():
     # import pdb
     # pdb.set_trace()
 
-    print(symbol.debug_str())
-    mx.viz.plot_network(symbol)
+    # print(symbol.debug_str())
+    # mx.viz.plot_network(symbol)
 
 
 
@@ -170,8 +169,7 @@ def main():
         learning_rate       = args.lr,
         momentum            = args.mom,
         wd                  = args.wd,
-        optimizer           = 'nag',
-        # optimizer          = 'sgd',
+        optimizer          = 'sgd',
         initializer         = mx.init.Xavier(rnd_type='gaussian', factor_type="in", magnitude=2),
         lr_scheduler        = multi_factor_scheduler(begin_epoch, epoch_size, step=[220, 260, 280], factor=0.1)
                              if args.data_type=='cifar10' else
@@ -189,8 +187,7 @@ def main():
         kvstore            = kv,
         batch_end_callback = mx.callback.Speedometer(args.batch_size, args.frequent),
         epoch_end_callback = checkpoint)
-    #logging.info("top-1 and top-5 acc is {}".format(model.score(X = val,
-    #               eval_metric = ['acc', mx.metric.create('top_k_accuracy', top_k = 5)])))
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="command for training DenseNet-BC")
